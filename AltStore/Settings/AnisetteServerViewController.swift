@@ -50,8 +50,22 @@ extension AnisetteServerViewController
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath)
     {
         self.tableView.deselectRow(at: indexPath, animated: true)
-        if indexPath[1] == 2 {
+        if indexPath[1] == 0 {
+            // reset adi.pb
+            let toast = ToastView(text: "Deleted adi.pb file!", detailText: "You will need to verify your 2FA!")
+            toast.show(in: self)
+            let fm = FileManager.default
+            let documentsPath = fm.documentsDirectory.appendingPathComponent("adi.pb")
+            print("ADI Path: \(documentsPath)")
             
+            if fm.fileExists(atPath: documentsPath.path) {
+                do {
+                    try fm.removeItem(at: documentsPath.absoluteURL)
+                    print("DELETED ADI")
+                } catch let error as NSError {
+                    print("REMOVE ERROR: \(error.domain)")
+                }
+            }
         }
     }
 }
