@@ -32,6 +32,10 @@ class FetchAnisetteDataOperation: ResultOperation<ALTAnisetteData>
             return
         }
         
+        let fm = FileManager.default
+        let documentsPath = fm.documentsDirectory.appendingPathComponent("adi.pb")
+        print("ADI Path: \(documentsPath)")
+        
         let url = AnisetteManager.currentURL
         DLOG("Anisette URL: %@", url.absoluteString)
         
@@ -51,11 +55,7 @@ class FetchAnisetteDataOperation: ResultOperation<ALTAnisetteData>
                         self.finish(.success(anisette))
                     }
                 }
-            } catch let error as NSError {
-                print("Failed to load: \(error.localizedDescription)")
-                self.finish(.failure(error))
             }
-            
         }
         
         task.resume()
