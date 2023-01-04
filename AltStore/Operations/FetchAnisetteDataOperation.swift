@@ -32,60 +32,57 @@ class FetchAnisetteDataOperation: ResultOperation<ALTAnisetteData>
             return
         }
         
-        let fm = FileManager.default
-        let documentsPath = fm.documentsDirectory.appendingPathComponent("adi.pb")
-        print("ADI Path: \(documentsPath)")
-        
-        let url = AnisetteManager.currentURL
-        DLOG("Anisette URL: %@", url.absoluteString)
-        
-        let session = URLSession.shared
-        
-        var postData = Data()
-
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("multipart/form-data; boundary=ebd46b494f8b3f6926db4f30a3f371ae", forHTTPHeaderField: "Content-Type")
-        
         do {
+            let fm = FileManager.default
+            let documentsPath = fm.documentsDirectory.appendingPathComponent("adi.pb")
+            print("ADI Path: \(documentsPath)")
+            
+            let url = AnisetteManager.currentURL
+            DLOG("Anisette URL: %@", url.absoluteString)
+            
+            let session = URLSession.shared
+            
+            var postData = Data()
+
+            var request = URLRequest(url: url)
+            request.httpMethod = "POST"
+            request.setValue("multipart/form-data; boundary=ebd46b494f8b3f6926db4f30a3f371ae", forHTTPHeaderField: "Content-Type")
+
             // Get the raw data from the file.
             let rawData: Data = try Data(contentsOf: documentsPath)
-            print("ADI EXISTS")
+            DLOG("adi.pb exists")
             postData.append("--ebd46b494f8b3f6926db4f30a3f371ae\r\n".data(using: .utf8)!)
             postData.append("Content-Disposition: form-data; name=\"adi.pb\"; filename=\"adi.pb\"\r\n\r\n".data(using: .utf8)!)
             for byte in rawData {
                 postData.append(byte)
             }
             postData.append("\r\n--ebd46b494f8b3f6926db4f30a3f371ae\r\n".data(using: .utf8)!)
-        } catch let error as NSError {
-            self.fetchADIFile(session: URLSession.shared)
-            self.finish(.failure(error))
-        }
-        
-        let task = session.uploadTask(with: request, from: postData, completionHandler: { data, response, error in
-            if let data = data {
-                do {
-                    print(String(data: data, encoding: .utf8))
-                    // make sure this JSON is in the format we expect
-                    // convert data to json
-                    if let json = try JSONSerialization.jsonObject(with: data, options: []) as? [String: String] {
-                        // try to read out a dictionary
-                        //for some reason serial number isn't needed but it doesn't work unless it has a value
-                        let formattedJSON: [String: String] = ["machineID": json["X-Apple-I-MD-M"]!, "oneTimePassword": json["X-Apple-I-MD"]!, "localUserID": json["X-Apple-I-MD-LU"]!, "routingInfo": json["X-Apple-I-MD-RINFO"]!, "deviceUniqueIdentifier": json["X-Mme-Device-Id"]!, "deviceDescription": json["X-MMe-Client-Info"]!, "date": json["X-Apple-I-Client-Time"]!, "locale": json["X-Apple-Locale"]!, "timeZone": json["X-Apple-I-TimeZone"]!, "deviceSerialNumber": "1"]
-                        print(formattedJSON)
+            let task = session.uploadTask(with: request, from: postData, completionHandler: { data, response, error in
+                if let data = data {
+                    do {
+                        print(data)
+                        // make sure this JSON is in the format we expect
+                        // convert data to json
+                        if let json = try JSONSerialization.jsonObject(with: data, options: []) as? [String: String] {
+                            // try to read out a dictionary
+                            //for some reason serial number isn't needed but it doesn't work unless it has a value
+                            let formattedJSON: [String: String] = ["machineID": json["X-Apple-I-MD-M"]!, "oneTimePassword": json["X-Apple-I-MD"]!, "localUserID": json["X-Apple-I-MD-LU"]!, "routingInfo": json["X-Apple-I-MD-RINFO"]!, "deviceUniqueIdentifier": json["X-Mme-Device-Id"]!, "deviceDescription": json["X-MMe-Client-Info"]!, "date": json["X-Apple-I-Client-Time"]!, "locale": json["X-Apple-Locale"]!, "timeZone": json["X-Apple-I-TimeZone"]!, "deviceSerialNumber": "1"]
 
-                        if let anisette = ALTAnisetteData(json: formattedJSON) {
-                            self.finish(.success(anisette))
+                            if let anisette = ALTAnisetteData(json: formattedJSON) {
+                                self.finish(.success(anisette))
+                            }
                         }
+                    } catch let error as NSError {
+                        print("Failed to load: \(error.localizedDescription)")
+                        self.finish(.failure(error))
                     }
-                } catch let error as NSError {
-                    print("Failed to load: \(error.localizedDescription)")
-                    self.finish(.failure(error))
                 }
-            }
-        })
-
-        task.resume()
+            })
+            task.resume()
+        } catch let error as NSError {
+            return self.fetchADIFile(session: URLSession.shared)
+            
+        }
     }
     
     func fetchADIFile(session: URLSession) {
@@ -94,19 +91,54 @@ class FetchAnisetteDataOperation: ResultOperation<ALTAnisetteData>
         let documentsPath = fm.documentsDirectory.appendingPathComponent("adi.pb")
 
         print("ADI URL: \(AnisetteManager.currentURL.appendingPathComponent("adi_file").absoluteString)")
-        let task = URLSession.shared.downloadTask(with: AnisetteManager.currentURL.appendingPathComponent("adi_file")) { localURL, urlResponse, error in
-            if let localURL = localURL {
-                print("localURL!")
-                print(localURL.absoluteString)
-                if let data = try? Data(contentsOf: localURL) {
-                    print("data!")
-                    do {
-                        try data.write(to: documentsPath)
-                        print("WROTE ADI?")
-                    } catch let error as NSError {
-                        print("ADI WRITE ERROR: \(error.domain)")
+        
+        let task = URLSession.shared.dataTask(with: AnisetteManager.currentURL.appendingPathComponent("adi_file")) { data, response, error in
+            guard let data = data, error == nil else { return }
+            
+            do {
+                if let json = try JSONSerialization.jsonObject(with: data, options: []) as? [String: String] {
+                    let formattedJSON: [String: String] = ["machineID": json["X-Apple-I-MD-M"]!, "oneTimePassword": json["X-Apple-I-MD"]!, "localUserID": json["X-Apple-I-MD-LU"]!, "routingInfo": json["X-Apple-I-MD-RINFO"]!, "deviceUniqueIdentifier": json["X-Mme-Device-Id"]!, "deviceDescription": json["X-MMe-Client-Info"]!, "date": json["X-Apple-I-Client-Time"]!, "locale": json["X-Apple-Locale"]!, "timeZone": json["X-Apple-I-TimeZone"]!, "deviceSerialNumber": "1"]
+                    if let anisette = ALTAnisetteData(json: formattedJSON) {
+                        DLOG("Found anisette data instead of adi.pb file, fallback initiated")
+                        
+                        if let trustedURL = UserDefaults.shared.trustedServerURL {
+                            print(trustedURL)
+                            print(AnisetteManager.currentURLString)
+                            if trustedURL == AnisetteManager.currentURLString {
+                                return self.finish(.success(anisette))
+                            }
+                        }
+                        
+                        let alert = UIAlertController(title: "WARNING!", message: "We've detected you are using an older anisette server, using this server has a higher likelihood of locking your account, do you still want to continue?", preferredStyle: UIAlertController.Style.alert)
+                        alert.addAction(UIAlertAction(title: "Continue", style: UIAlertAction.Style.destructive, handler: {action in
+                            DLOG("Using older anisette method")
+                            UserDefaults.shared.trustedServerURL = AnisetteManager.currentURLString
+                            self.finish(.success(anisette))
+                        }))
+                        alert.addAction(UIAlertAction(title: "Cancel", style: UIAlertAction.Style.cancel, handler: {action in
+                            DLOG("Cancelled the fallback operation")
+                            self.finish(.failure(NSError()))
+                        }))
+                        
+                        let keyWindow = UIApplication.shared.windows.filter {$0.isKeyWindow}.first
+                        
+                        DispatchQueue.main.async {
+                            if let presentingController = keyWindow?.rootViewController?.presentedViewController {
+                                presentingController.present(alert, animated: true)
+                            } else {
+                                keyWindow?.rootViewController?.present(alert, animated: true)
+                            }
+                        }
                     }
                 }
+            } catch _ as NSError {
+                do {
+                    try data.write(to: documentsPath)
+                    DLOG("Wrote adi.pb file")
+                } catch let error as NSError {
+                    DLOG("ADI Write Error: %@", error.domain)
+                }
+                
             }
         }
         
