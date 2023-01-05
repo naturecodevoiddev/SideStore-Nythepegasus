@@ -80,7 +80,8 @@ final class FetchAnisetteDataOperation: ResultOperation<ALTAnisetteData>
             })
             task.resume()
         } catch let error as NSError {
-            return self.fetchADIFile(session: URLSession.shared)
+            self.fetchADIFile(session: URLSession.shared)
+            return self.finish(.failure(error))
             
         }
     }
@@ -113,11 +114,11 @@ final class FetchAnisetteDataOperation: ResultOperation<ALTAnisetteData>
                         alert.addAction(UIAlertAction(title: "Continue", style: UIAlertAction.Style.destructive, handler: {action in
                             DLOG("Using older anisette method")
                             UserDefaults.shared.trustedServerURL = AnisetteManager.currentURLString
-                            self.finish(.success(anisette))
+                            return self.finish(.success(anisette))
                         }))
                         alert.addAction(UIAlertAction(title: "Cancel", style: UIAlertAction.Style.cancel, handler: {action in
                             DLOG("Cancelled the fallback operation")
-                            self.finish(.failure(NSError()))
+                            return
                         }))
                         
                         let keyWindow = UIApplication.shared.windows.filter {$0.isKeyWindow}.first
@@ -135,8 +136,10 @@ final class FetchAnisetteDataOperation: ResultOperation<ALTAnisetteData>
                 do {
                     try data.write(to: documentsPath)
                     DLOG("Wrote adi.pb file")
+                    return
                 } catch let error as NSError {
                     DLOG("ADI Write Error: %@", error.domain)
+                    return self.finish(.failure(error))
                 }
                 
             }
