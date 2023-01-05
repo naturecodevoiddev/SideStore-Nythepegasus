@@ -37,6 +37,10 @@ final class FetchAnisetteDataOperation: ResultOperation<ALTAnisetteData>
             let documentsPath = fm.documentsDirectory.appendingPathComponent("adi.pb")
             print("ADI Path: \(documentsPath)")
             
+            if !fm.fileExists(atPath: documentsPath.absoluteString) {
+                self.fetchADIFile(session: URLSession.shared)
+            }
+            
             let url = AnisetteManager.currentURL
             DLOG("Anisette URL: %@", url.absoluteString)
             
