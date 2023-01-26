@@ -39,7 +39,7 @@ final class FetchAnisetteDataOperation: ResultOperation<ALTAnisetteData>
         let rawData = try? Data(contentsOf: documentsPath)
         if rawData == nil {
             print("adi.pb does not exist, fetching it")
-            return self.fetchADIFile(true)
+            return self.fetchADIFile()
         }
         print("adi.pb exists")
         
@@ -84,7 +84,7 @@ final class FetchAnisetteDataOperation: ResultOperation<ALTAnisetteData>
         task.resume()
     }
     
-    func fetchADIFile(_ callMainAfterWritingFile: Bool = false) {
+    func fetchADIFile() {
         let fm = FileManager.default
         let documentsPath = fm.documentsDirectory.appendingPathComponent("adi.pb")
 
@@ -132,10 +132,7 @@ final class FetchAnisetteDataOperation: ResultOperation<ALTAnisetteData>
                 do {
                     try data.write(to: documentsPath)
                     print("Wrote adi.pb file")
-                    if callMainAfterWritingFile {
-                        return self.main()
-                    }
-                    return
+                    return self.main()
                 } catch let error as NSError {
                     print("ADI Write Error: %@", error.domain)
                     return self.finish(.failure(error))
