@@ -134,7 +134,7 @@ final class FetchAnisetteDataOperation: ResultOperation<ALTAnisetteData>
                     print("Wrote adi.pb file")
                     return self.main()
                 } catch let error as NSError {
-                    print("ADI Write Error: %@", error.domain)
+                    print("ADI Write Error: \(error.domain)")
                     return self.finish(.failure(error))
                 }
                 
